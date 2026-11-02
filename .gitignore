@@ -46,3 +46,10 @@ serve_tmp.js
 verify-hero.cjs
 /black webbed logo png.png
 /.firebase/
+
+# Local development files
+.vscode/
+*.log
+serve.err
+lint.txt
+webbed.in_*.report.html

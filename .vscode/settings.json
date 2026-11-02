@@ -1,6 +1,0 @@
-{
-  "css.customData": [".vscode/tailwind.css-data.json"],
-  "files.associations": {
-    "*.css": "tailwindcss"
-  }
-}
