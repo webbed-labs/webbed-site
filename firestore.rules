@@ -1,0 +1,71 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Newsletter signups (CinematicFooter) — anyone may create, reads allowed for admin dashboard.
+    match /newsletters/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'timestamp'])
+        && request.resource.data.email is string
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.timestamp == request.time;
+      allow read: if true;
+      allow update, delete: if false;
+    }
+
+    // Product updates signup (Labs page) — create only, reads for admin.
+    match /product_updates/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'timestamp'])
+        && request.resource.data.email is string
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.timestamp == request.time;
+      allow read: if true;
+      allow update, delete: if false;
+    }
+
+    // Course updates signup (Schools page) — create only, reads for admin.
+    match /course_updates/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'course', 'timestamp'])
+        && request.resource.data.email is string
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.course is string
+        && request.resource.data.course.size() <= 200
+        && request.resource.data.timestamp == request.time;
+      allow read: if true;
+      allow update, delete: if false;
+    }
+
+    // Blog posts — full public read; admin CRUD handled client-side.
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow create, update, delete: if true;
+    }
+
+    // Blog newsletter subscriptions from the /blogs page.
+    match /blog_subscribers/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'timestamp'])
+        && request.resource.data.email is string
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.timestamp == request.time;
+      allow read: if true;
+      allow update, delete: if false;
+    }
+
+    // Page view tracking — browser increments a counter per page path.
+    // One document per page, merge-write with increment(). Free-tier safe.
+    match /page_views/{pageId} {
+      allow read: if true;
+      allow create, update: if true;
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

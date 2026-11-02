@@ -1,0 +1,70 @@
+{
+  "version": 1.1,
+  "atDirectives": [
+    {
+      "name": "@theme",
+      "description": "Tailwind CSS v4 theme directive — defines design tokens (colors, fonts, spacing, animations, etc.) for the project. Use `@theme inline` to scope tokens to the current file.",
+      "references": [
+        {
+          "name": "Tailwind CSS Docs — Theme",
+          "url": "https://tailwindcss.com/docs/theme"
+        }
+      ]
+    },
+    {
+      "name": "@import",
+      "description": "CSS @import — Tailwind v4 uses `@import \"tailwindcss\"` to load the framework.",
+      "references": []
+    },
+    {
+      "name": "@config",
+      "description": "Tailwind CSS v4 config directive — points to a JavaScript config file for custom configuration.",
+      "references": [
+        {
+          "name": "Tailwind CSS Docs — Configuration",
+          "url": "https://tailwindcss.com/docs/configuration"
+        }
+      ]
+    },
+    {
+      "name": "@plugin",
+      "description": "Tailwind CSS v4 plugin directive — registers a Tailwind plugin.",
+      "references": [
+        {
+          "name": "Tailwind CSS Docs — Plugins",
+          "url": "https://tailwindcss.com/docs/plugins"
+        }
+      ]
+    },
+    {
+      "name": "@source",
+      "description": "Tailwind CSS v4 source directive — explicitly registers scan paths for class detection.",
+      "references": [
+        {
+          "name": "Tailwind CSS Docs — Source Detection",
+          "url": "https://tailwindcss.com/docs/detecting-classes-in-source-files"
+        }
+      ]
+    },
+    {
+      "name": "@custom-variant",
+      "description": "Tailwind CSS v4 variant directive — defines custom variants like `@custom-variant dark (&:is(.dark *))`.",
+      "references": [
+        {
+          "name": "Tailwind CSS Docs — Custom Variants",
+          "url": "https://tailwindcss.com/docs/adding-custom-styles#custom-variants"
+        }
+      ]
+    },
+    {
+      "name": "@utility",
+      "description": "Tailwind CSS v4 utility directive — defines a custom utility class.",
+      "references": [
+        {
+          "name": "Tailwind CSS Docs — Utilities",
+          "url": "https://tailwindcss.com/docs/adding-custom-styles#utilities"
+        }
+      ]
+    }
+  ]
+}

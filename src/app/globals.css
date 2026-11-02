@@ -1,0 +1,1192 @@
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Global Scroll Performance
+   --------------------------------------------------------------------------
+   The site uses many absolute-positioned glow / blur layers and GSAP
+   scroll-triggers. Without the hints below, browsers repaint all of them
+   every frame, which is the root cause of the "laggy / slow scroll" reports.
+   We:
+     1. Enable smooth scrolling for anchor links (no-op on programmatic /
+        GSAP-driven scrolls).
+     2. Promote the main scrollable region to its own compositor layer with
+        a translateZ nudge, so child fixed/absolute elements don't trigger
+        full repaints on scroll.
+     3. Defer off-screen content rendering with `content-visibility: auto`,
+        which is the single biggest win for long pages with many sections.
+     4. Honour `prefers-reduced-motion` so users who opt out get crisp
+        jump-scrolls instead of inertia.
+   ────────────────────────────────────────────────────────────────────────── */
+
+html {
+  scroll-behavior: smooth;
+  /* Enable iOS momentum scrolling without introducing a containing block
+     that would break GSAP ScrollTrigger math. */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* A `body`-level `will-change: transform` would over-promote the entire
+   page to a single composited layer, which is wasteful on long pages.
+   Instead we rely on the section-level `content-visibility: auto` below
+   to defer off-screen work, and on the explicit `will-change` hints that
+   heavy components (Hero, About, Labs) already set on their own animated
+   children. */
+
+/* Defer rendering for sections that are far below the fold — but only for
+   sections that explicitly opt in via the `.lazy-section` class. The global
+   `content-visibility: auto` rule was removed because it can cause Google's
+   renderer to skip indexing below-the-fold content on initial page load.
+   
+   The browser preserves layout, so the scrollbar / heights remain accurate.
+   Use a generous `contain-intrinsic-size` so the page doesn't visually jump
+   as those sections come into view.
+   
+   Apply `.lazy-section` only to performance-critical sections that are well
+   below the fold (e.g. closing CTAs, testimonial carousels far down the page).
+   Keep hero sections, navigation-adjacent content, and SEO-important sections
+   as `content-visibility: visible` so crawlers always index them. */
+.lazy-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 800px;
+}
+
+/* On small screens the `contain-intrinsic-size` estimate can cause visible
+   jumps. Loosen the rule so the browser falls back to always-paint on
+   mobile, where the bottleneck is touch latency rather than paint cost. */
+@media (max-width: 768px) {
+  .lazy-section {
+    content-visibility: visible;
+  }
+}
+
+/* Respect reduced-motion: kill smooth scroll inertia entirely so the page
+   feels snappy and predictable. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* This interaction is user-directed and must visibly lead each carousel change. */
+.about-timeline-travel {
+  transition-duration: 1000ms !important;
+}
+
+/* Hide the on-by-default focus ring on touch / mouse but keep it for
+   keyboard navigation. Prevents the :focus repaint that otherwise fires
+   while users scroll with a mouse. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Backdrop-blur performance hint
+   --------------------------------------------------------------------------
+   `backdrop-filter: blur(...)` is one of the most expensive CSS effects
+   on scroll — the browser must re-rasterise the blurred backdrop every
+   time anything moves under the element. Forcing an isolated stacking
+   context lets the browser cache that rasterised layer, which is the
+   difference between a janky scroll and a smooth one on long pages.
+   Apply this via the `.blur-isolated` utility class on any backdrop-blur
+   container that sits over a moving background. ────────────────────────────────────────────────────────────────────────── */
+.blur-isolated {
+  isolation: isolate;
+  /* Promote the blurred element to its own GPU layer so the browser doesn't
+     re-blur the content beneath it on every scroll tick. The transform is
+     a no-op visually but the side-effect is a dedicated compositor layer. */
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Same hint for the page's giant ambient glow / radial-gradient halos.
+   They're positioned `absolute` over the entire viewport and were being
+   repainted every frame. Promoting them to their own layers keeps the
+   main scroll thread idle. */
+.ambient-glow-layer {
+  contain: strict;
+  transform: translateZ(0);
+  will-change: transform;
+  pointer-events: none;
+}
+
+.gradient-button {
+  position: relative;
+  padding: 16px 32px;
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 50px;
+  overflow: hidden;
+  transition: transform 0.2s ease;
+}
+
+.gradient-button:hover {
+  transform: scale(1.03);
+}
+
+.gradient-button::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(from 0deg,
+      #ff6b6b,
+      #4ecdc4,
+      #45b7d1,
+      #96ceb4,
+      #feca57,
+      #ff9ff3,
+      #ff6b6b);
+  z-index: -2;
+  filter: blur(10px);
+  transform: rotate(0deg);
+  transition: transform 1.5s ease-in-out;
+}
+
+.gradient-button:hover::before {
+  transform: rotate(180deg);
+}
+
+.gradient-button::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  background: black;
+  border-radius: 47px;
+  z-index: -1;
+  filter: blur(5px);
+}
+
+.gradient-text {
+  color: transparent;
+  background: conic-gradient(from 0deg,
+      #ff6b6b,
+      #4ecdc4,
+      #45b7d1,
+      #96ceb4,
+      #feca57,
+      #ff9ff3,
+      #ff6b6b);
+  background-clip: text;
+  filter: hue-rotate(0deg);
+}
+
+.gradient-button:hover .gradient-text {
+  animation: hue-rotating 2s linear infinite;
+}
+
+.gradient-button:active {
+  transform: scale(0.99);
+}
+
+@keyframes hue-rotating {
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Header: Contact button variant (black/white/grey + outline)               */
+/* -------------------------------------------------------------------------- */
+
+.header-contact-button {
+  position: relative;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  background: transparent;
+  border: 1.5px solid rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+  border-radius: 50px;
+  overflow: hidden;
+  transition: transform 0.2s ease;
+}
+
+.header-contact-button:hover {
+  transform: scale(1.03);
+}
+
+.header-contact-button::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(from 0deg,
+      #ffffff,
+      #d9d9d9,
+      #9a9a9a,
+      #f2f2f2,
+      #6f6f6f,
+      #ffffff);
+  z-index: -2;
+  filter: blur(10px);
+  transform: rotate(0deg);
+  transition: transform 1.5s ease-in-out;
+}
+
+.header-contact-button:hover::before {
+  transform: rotate(180deg);
+}
+
+.header-contact-button::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: rgba(0, 0, 0, 0.95);
+  border-radius: 47px;
+  z-index: -1;
+  filter: blur(5px);
+}
+
+.header-contact-text {
+  color: #000000;
+  -webkit-text-fill-color: #000000;
+  background: none;
+  background-clip: initial;
+  filter: none;
+}
+
+.header-contact-button:hover .header-contact-text {
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+
+@keyframes header-contact-hue-rotating {
+  to {
+    filter: grayscale(1) contrast(1.1) brightness(1.15);
+  }
+}
+
+.header-contact-button:active {
+  transform: scale(0.99);
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --animate-hero-content-in: hero-content-in 1.15s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+
+  @keyframes hero-content-in {
+    from {
+      opacity: 0;
+      transform: translateY(1.25rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.8s ease-out forwards;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Hero intro critical first-paint state. These are global on purpose so the
+   brand intro never flashes the completed hero before GSAP hydrates. */
+#hero .hero-reveal {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+}
+
+#hero .hero-ambient,
+#hero .hero-final-light,
+#hero .hero-network {
+  opacity: 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* WEBBED Typography System (global utility classes)                           */
+/* -------------------------------------------------------------------------- */
+
+.font-heading {
+  font-family: var(--font-heading), var(--font-body), system-ui, sans-serif;
+}
+
+.font-body {
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+.font-ui {
+  font-family: var(--font-ui), var(--font-body), system-ui, sans-serif;
+  font-variation-settings: "wght" 560;
+}
+
+/* Type scales use clamp() for responsive sizing without layout shifts. */
+.type-eyebrow {
+  font-family: var(--font-ui), var(--font-body), system-ui, sans-serif;
+  font-size: clamp(0.7rem, 0.62rem + 0.25vw, 0.9rem);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.type-hero {
+  font-family: var(--font-heading), var(--font-body), system-ui, sans-serif;
+  font-weight: 600;
+  font-size: clamp(3.25rem, 2.4rem + 3.6vw, 6rem);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+
+.type-body {
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  line-height: 1.75;
+}
+
+.type-nav-brand {
+  font-family: var(--font-heading), var(--font-body), system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.type-nav-link {
+  font-family: var(--font-ui), var(--font-body), system-ui, sans-serif;
+  font-size: 0.875rem;
+  letter-spacing: 0.06em;
+}
+
+.type-button {
+  font-family: var(--font-ui), var(--font-body), system-ui, sans-serif;
+  font-size: 0.875rem;
+  letter-spacing: 0.08em;
+  font-variation-settings: "wght" 640;
+}
+
+/* Cinematic Footer Light Animations */
+@keyframes glow-pulse {
+
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes beam-swing {
+  0% {
+    transform: translateX(0) translateY(0);
+  }
+
+  50% {
+    transform: translateX(-2px) translateY(2px);
+  }
+
+  100% {
+    transform: translateX(0) translateY(0);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 6s ease-in-out infinite;
+}
+
+.animate-beam-swing {
+  animation: beam-swing 8s ease-in-out infinite;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Why Choose Us: Responsive Sphere Layout (< 768px)                           */
+/* -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+
+  /* Reduce label width and font sizes */
+  .feature-label-text {
+    width: 120px !important;
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Specific mobile coordinates for the labels */
+  /* Top-left: Hybrid Expertise */
+  .feature-label-0 {
+    --feature-x: -110px !important;
+    --feature-y: -140px !important;
+  }
+
+  /* Middle-left: Professional-Grade Quality */
+  .feature-label-1 {
+    --feature-x: -125px !important;
+    --feature-y: -10px !important;
+  }
+
+  /* Bottom-left: Custom-Built Solutions */
+  .feature-label-2 {
+    --feature-x: -110px !important;
+    --feature-y: 130px !important;
+  }
+
+  /* Top-right: AI at the Core */
+  .feature-label-3 {
+    --feature-x: 110px !important;
+    --feature-y: -140px !important;
+  }
+
+  /* Middle-right: Flexible Tech Stack */
+  .feature-label-4 {
+    --feature-x: 125px !important;
+    --feature-y: -10px !important;
+  }
+
+  /* Bottom-right: Agile Delivery */
+  .feature-label-5 {
+    --feature-x: 110px !important;
+    --feature-y: 130px !important;
+  }
+}
+
+/* Extra small mobile adjustments to avoid any viewport overflow */
+@media (max-width: 380px) {
+  .feature-label-text {
+    width: 105px !important;
+    font-size: 12px !important;
+  }
+
+  .feature-label-0 {
+    --feature-x: -95px !important;
+    --feature-y: -120px !important;
+  }
+
+  .feature-label-1 {
+    --feature-x: -115px !important;
+    --feature-y: -10px !important;
+  }
+
+  .feature-label-2 {
+    --feature-x: -95px !important;
+    --feature-y: 110px !important;
+  }
+
+  .feature-label-3 {
+    --feature-x: 95px !important;
+    --feature-y: -120px !important;
+  }
+
+  .feature-label-4 {
+    --feature-x: 115px !important;
+    --feature-y: -10px !important;
+  }
+
+  .feature-label-5 {
+    --feature-x: 95px !important;
+    --feature-y: 110px !important;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   About page: Social / Contact bento grid
+   2-row staggered layout (2 cols then 3 cols) + sharp clip-path slice hover
+   ────────────────────────────────────────────────────────────────────────── */
+
+.social-bento-grid {
+  display: grid;
+  /* Use 6 columns so we can do:
+     Row 1: 3/6 + 3/6 (50/50)
+     Row 2: 2/6 + 2/6 + 2/6 (33/33/33)
+  */
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: 96px;
+  gap: 0;
+  border: 1px solid rgba(0, 0, 0, 0.85);
+  background: #fff;
+}
+
+.social-bento-cell {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  background: #f3f4f6;
+  color: #0a0a0a;
+  text-decoration: none;
+  transform: translateZ(0);
+  border-right: 1px solid rgba(0, 0, 0, 0.85);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.85);
+}
+
+.social-bento-cell__inner {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: color 140ms ease;
+  color: #0a0a0a;
+}
+
+/* Icon + label sizing */
+.social-bento-cell__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #0a0a0a;
+  transition: color 140ms ease;
+}
+
+.social-bento-cell__icon svg {
+  display: block;
+}
+
+.social-bento-cell__label {
+  font-family: var(--font-ui), var(--font-body), system-ui, -apple-system, Segoe UI, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-size: 12px;
+}
+
+/* Placement mapping from SocialBentoGrid:
+   idx 0,1 => row 1
+   idx 2,3,4 => row 2
+*/
+
+.social-bento-cell--1-0 {
+  grid-column: 1 / span 3;
+  /* 50% */
+  grid-row: 1;
+}
+
+.social-bento-cell--1-1 {
+  grid-column: 4 / span 3;
+  /* 50% */
+  grid-row: 1;
+  border-right: none;
+  /* last col */
+}
+
+.social-bento-cell--2-2 {
+  grid-column: 1 / span 2;
+  grid-row: 2;
+}
+
+.social-bento-cell--2-3 {
+  grid-column: 3 / span 2;
+  grid-row: 2;
+}
+
+.social-bento-cell--2-4 {
+  grid-column: 5 / span 2;
+  grid-row: 2;
+  border-right: none;
+  /* last col */
+  border-bottom: none;
+}
+
+/* Only bottom border on row 1 cells (internal separator handled by container border) */
+.social-bento-cell--1-0,
+.social-bento-cell--1-1 {
+  border-bottom: none;
+}
+
+/* Hover background + inversion + geometric slice */
+.social-bento-cell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #000;
+  opacity: 0;
+  transition: opacity 60ms ease;
+  /* Sharp angular polygon reveal based on pointer vars */
+  clip-path: polygon(calc(var(--sx, 50%) * 1) 0%,
+      100% 0%,
+      100% 100%,
+      calc(var(--sx, 50%) * 1 + 8%) 100%,
+      0% 100%,
+      0% 0%);
+}
+
+.social-bento-cell::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.0),
+      rgba(255, 255, 255, 0.25),
+      rgba(255, 255, 255, 0.0));
+  opacity: 0;
+  transform: translateX(-20%);
+  transition: opacity 120ms ease, transform 220ms ease;
+}
+
+.social-bento-cell:hover {
+  background: #000;
+}
+
+.social-bento-cell:hover::before {
+  opacity: 1;
+}
+
+.social-bento-cell:hover::after {
+  opacity: 0.35;
+  transform: translateX(20%);
+}
+
+.social-bento-cell:hover .social-bento-cell__inner {
+  color: #fff;
+}
+
+.social-bento-cell:hover .social-bento-cell__icon {
+  color: #fff;
+}
+
+/* Make click feedback snappy */
+.social-bento-cell:active {
+  transform: scale(0.99);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Seamless Section Transitions & Reveal Animations
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Reveal animations keyframes & base styles */
+.reveal-up {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0s);
+  will-change: transform, opacity;
+}
+
+.reveal-up.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0s);
+  will-change: transform, opacity;
+}
+
+.reveal-scale.revealed {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Section blending helpers */
+.section-fade-top-dark {
+  background: linear-gradient(to bottom, #000 0%, transparent 100%);
+}
+
+.section-fade-bottom-dark {
+  background: linear-gradient(to top, #000 0%, transparent 100%);
+}
+
+.section-fade-top-white {
+  background: linear-gradient(to bottom, #fff 0%, transparent 100%);
+}
+
+.section-fade-bottom-white {
+  background: linear-gradient(to top, #fff 0%, transparent 100%);
+}
+
+/* Respect user preferences for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .reveal-up, .reveal-scale {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Mobile Responsiveness: Global Overrides
+   Desktop remains completely untouched — all changes are scoped to ≤ 1024px.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Prevent horizontal scroll on all viewports */
+html {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* ── Mobile-first: 0–480px ── */
+@media (max-width: 480px) {
+
+  /* ── Typography scale-down ── */
+  .type-hero {
+    font-size: clamp(1.8rem, 9vw, 3.25rem) !important;
+    line-height: 0.95 !important;
+  }
+
+  .type-body {
+    font-size: clamp(0.875rem, 3.5vw, 1rem) !important;
+    line-height: 1.6 !important;
+  }
+
+  /* Section heading overrides for pages with fixed font-size values */
+  h1[style*="font-size: 68px"],
+  h1[style*="font-size: 72px"],
+  h2[style*="font-size: 72px"] {
+    font-size: clamp(2rem, 10vw, 3rem) !important;
+  }
+
+  h1[style*="font-size: 48px"],
+  h2[style*="font-size: 48px"] {
+    font-size: clamp(1.75rem, 8vw, 2.5rem) !important;
+  }
+
+  h2[style*="font-size: 52px"] {
+    font-size: clamp(1.75rem, 8vw, 2.75rem) !important;
+  }
+
+  h2[style*="font-size: 40px"] {
+    font-size: clamp(1.5rem, 7vw, 2.25rem) !important;
+  }
+
+  h2[style*="font-size: 44px"] {
+    font-size: clamp(1.5rem, 7vw, 2.25rem) !important;
+  }
+
+  /* Services card heading scaling */
+  .type-hero + * h3 {
+    font-size: clamp(1.25rem, 6vw, 1.75rem) !important;
+  }
+
+  /* ── Spacing reduction ── */
+  section[class*="py-24"],
+  section[class*="py-28"],
+  section[class*="py-32"] {
+    padding-top: 3rem !important;
+    padding-bottom: 3rem !important;
+  }
+
+  section[class*="py-36"] {
+    padding-top: 3rem !important;
+    padding-bottom: 3rem !important;
+  }
+
+  /* ── Force single-column grids on mobile ── */
+  .grid-cols-2:not(.md\:grid-cols-2):not(.sm\:grid-cols-2) {
+    grid-template-columns: 1fr !important;
+  }
+
+  [class*="grid-cols-2"]:not([class*="sm:grid-cols-2"]):not([class*="md:grid-cols-2"]):not([class*="lg:grid-cols-2"]) {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Section padding/margins reduction ── */
+  .px-6 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .px-10 {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+
+  /* ── Fix overflow from oversized elements ── */
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* ── About page specific ── */
+  .about-storytelling-section .about-storytelling-grid {
+    grid-template-columns: 1fr !important;
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+
+  .about-storytelling-section .section-header {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+
+  .about-storytelling-card__title {
+    font-size: 2rem !important;
+  }
+
+  /* ── Cinematic Footer ── */
+  #contact [class*="lg:grid-cols-"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Solutions page service gallery cards ── */
+  #wb-services [class*="md:grid-cols-3"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Labs page ── */
+  [class*="lg:grid-cols-2"][class*="gap-16"],
+  [class*="lg:grid-cols-2"][class*="gap-10"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Solutions bento hero grid ── */
+  [class*="md:grid-cols-3"][class*="gap-6"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Tablet: 481–768px ── */
+@media (min-width: 481px) and (max-width: 768px) {
+
+  /* ── Section padding reduction ── */
+  section[class*="py-24"],
+  section[class*="py-28"] {
+    padding-top: 4rem !important;
+    padding-bottom: 4rem !important;
+  }
+
+  section[class*="py-32"] {
+    padding-top: 4rem !important;
+    padding-bottom: 4rem !important;
+  }
+
+  /* ── Fix overflowing 2-column layouts ── */
+  [class*="grid-cols-2"]:not([class*="sm:grid-cols-2"]):not([class*="md:grid-cols-2"]):not([class*="lg:grid-cols-2"]) {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── About Storytelling ── */
+  .about-storytelling-section .about-storytelling-grid {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+
+  .about-storytelling-section .section-header {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+
+  /* ── Services showcase cards ── */
+  #wb-services [class*="md:grid-cols-3"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Solutions bento grid ── */
+  [class*="md:grid-cols-3"][class*="gap-6"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Social Bento Grid: Mobile responsive ── */
+@media (max-width: 640px) {
+  .social-bento-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    grid-auto-rows: 80px !important;
+  }
+
+  .social-bento-cell--1-0 {
+    grid-column: 1 / span 1 !important;
+  }
+  .social-bento-cell--1-1 {
+    grid-column: 2 / span 1 !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.85) !important;
+  }
+  .social-bento-cell--2-2 {
+    grid-column: 1 / span 1 !important;
+  }
+  .social-bento-cell--2-3 {
+    grid-column: 2 / span 1 !important;
+  }
+  .social-bento-cell--2-4 {
+    grid-column: 1 / span 2 !important;
+    border-bottom: none !important;
+    border-right: none !important;
+  }
+
+  .social-bento-cell__label {
+    font-size: 9px !important;
+  }
+
+  .social-bento-cell__icon svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+}
+
+/* ── Laboratories: Timeline section padding on mobile ── */
+@media (max-width: 480px) {
+  #contact [class*="rounded-[2rem]"] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
+/* ── Labs closing section grid: 2 columns on tablet+, single on mobile ── */
+.labs-closing-grid {
+  grid-template-columns: 1fr !important;
+}
+
+@media (min-width: 768px) {
+  .labs-closing-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* ── Services showcase: cap card height on small mobile to prevent excessive scrolling ── */
+@media (max-width: 480px) {
+  #services [class*="min-h-"] {
+    min-height: 320px !important;
+  }
+}
+
+/* ── About Hero Section: reduce top margin on mobile ── */
+@media (max-width: 640px) {
+  section:has(> .social-bento-grid) {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+/* ── Labs timeline particle positioning (responsive) ── */
+@media (min-width: 640px) {
+  .labs-timeline-particle {
+    left: 18px !important;
+  }
+}
+
+/* ── About Hero: reduce excessive top margin on mobile ── */
+@media (max-width: 640px) {
+  .about-hero-eyebrow {
+    margin-top: 6rem !important;
+  }
+}
+
+/* ── Small phone: 320–380px ── */
+@media (max-width: 380px) {
+  .type-hero {
+    font-size: clamp(1.5rem, 7vw, 1.8rem) !important;
+  }
+
+  .px-6 {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  section[class*="py-24"],
+  section[class*="py-28"],
+  section[class*="py-32"] {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  .about-storytelling-card__title {
+    font-size: 1.5rem !important;
+  }
+}
+
+/* ── Additional Mobile Fixes ── */
+
+/* LabsHero: hide floating cards on very small screens to prevent overflow */
+@media (max-width: 480px) {
+  #labs [class*="absolute inset-0 z-[1]"] {
+    opacity: 0.3 !important;
+  }
+  #labs [class*="absolute pointer-events-auto"] {
+    display: none !important;
+  }
+  #labs [class*="absolute pointer-events-none"] {
+    display: none !important;
+  }
+}
+
+/* Contact page stats: stack vertically on mobile */
+@media (max-width: 640px) {
+  #contact [class*="flex items-stretch text-center"] {
+    flex-direction: column !important;
+  }
+  #contact [class*="flex-1 py-8"] {
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  }
+}
+
+/* Solutions service gallery cards: ensure no overflow */
+@media (max-width: 480px) {
+  #wb-services [class*="min-h-"] {
+    min-height: 180px !important;
+  }
+  #wb-services [class*="px-6 py-6"] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+  #wb-services [class*="text-[22px]"] {
+    font-size: clamp(1.1rem, 5vw, 1.35rem) !important;
+  }
+  #wb-services [class*="text-[13px]"] {
+    font-size: 12px !important;
+  }
+  #wb-services [class*="text-[9px]"] {
+    font-size: 10px !important;
+  }
+}
+
+/* WhyUsSection: ensure sphere doesn't overflow on small screens */
+@media (max-width: 480px) {
+  #why-us [class*="h-[260px]"] {
+    height: 180px !important;
+    width: 180px !important;
+  }
+  #why-us [class*="sm:h-[280px]"] {
+    height: 200px !important;
+    width: 200px !important;
+  }
+  #why-us [class*="md:h-[350px]"] {
+    height: 220px !important;
+    width: 220px !important;
+  }
+}
+
+/* Footer grid: stack on mobile - scoped to CinematicFooter directly now */
+@media (max-width: 768px) {
+}
+
+/* AboutManifesto: improve mobile stacking */
+@media (max-width: 768px) {
+  .manifesto-grid {
+    flex-direction: column !important;
+    gap: 2rem !important;
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+  .manifesto-left {
+    padding-right: 0 !important;
+  }
+  .manifesto-left h2 {
+    font-size: clamp(2rem, 8vw, 3.5rem) !important;
+    text-align: left !important;
+  }
+  .manifesto-right {
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+}
+
+/* Prevent any remaining horizontal overflow */
+@media (max-width: 480px) {
+  .overflow-hidden {
+    overflow: hidden !important;
+  }
+  [class*="overflow-x"] {
+    overflow-x: hidden !important;
+  }
+  img {
+    max-width: 100% !important;
+    height: auto;
+    object-fit: contain !important;
+  }
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}
+
+/* Labs page: ensure closing section grid stays single column on mobile,
+   with comfortable spacing between the heading paragraph and the timeline below. */
+@media (max-width: 767px) {
+  .labs-closing-grid {
+    grid-template-columns: 1fr !important;
+    row-gap: 56px !important;
+  }
+}
+
+/* Labs email form: stack input and button */
+@media (max-width: 480px) {
+  #labs [class*="flex-col sm:flex-row"] {
+    flex-direction: column !important;
+  }
+  #labs [class*="min-w-24"] {
+    min-width: unset !important;
+    width: 100% !important;
+  }
+}
+
+/* Footer newsletter form: stack on mobile - scoped to CinematicFooter directly now */
+@media (max-width: 480px) {
+}
+
+/* Reduce excessive fixed padding on mobile for AboutNeonTrail and Labs closing */
+@media (max-width: 640px) {
+  section[style*="padding-top: 140px"][style*="padding-bottom: 160px"] {
+    padding-top: 80px !important;
+    padding-bottom: 100px !important;
+  }
+}
+
+/* Ensure body and html have no overflow on any viewport */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}

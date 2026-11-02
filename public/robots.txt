@@ -1,0 +1,91 @@
+# ============================================================
+# WEBBED — robots.txt
+# https://webbed.in
+# ============================================================
+#
+# This site is fully open to EVERY crawler, search engine, and
+# AI / LLM chatbot. Nothing is disallowed. Every bot — Google,
+# Bing, Yandex, Baidu, and all AI agents (GPTBot, ClaudeBot,
+# PerplexityBot, Gemini, Copilot, Meta, Applebot, Amazonbot,
+# CCBot, Diffbot, cohere, and any future crawler) — is welcome
+# to fetch and read the entire site.
+
+User-agent: *
+Allow: /
+
+# Explicit allow for all known AI / LLM crawlers (defensive — the
+# wildcard above already covers them, but these guarantee access).
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Googlebot-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: DuckAssistBot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: cohere-training-data-crawler
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Diffbot
+Allow: /
+
+User-agent: FacebookBot
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: ia_archiver
+Allow: /
+
+# Sitemaps — point every engine at the authoritative XML.
+Sitemap: https://webbed.in/sitemap.xml
